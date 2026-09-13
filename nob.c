@@ -312,12 +312,14 @@ int main(int argc, char **argv)
 
     bool test = false;
     bool run = false;
+    bool install = false;
     bool help = false;
     bool debug = false;
     char *compiler_name = NULL;
     flag_bool_var(&test, "test", false, "Run the tests after building");
     flag_bool_var(&run, "run", false, "Run the app after the build");
     flag_bool_var(&debug, "debug", false, "Run the app in the debugger (gf2 specifically)");
+    flag_bool_var(&install, "install", false, "Build and install tatr");
     flag_bool_var(&help, "help", false, "Print this help message");
     flag_str_var(&compiler_name, "cc", "cc", "Compiler to use");
 
@@ -355,6 +357,50 @@ int main(int argc, char **argv)
     cmd_append(&cmd, "-o", BUILD_FOLDER"tatr");
     cmd_append(&cmd, SRC_FOLDER"tatr.c");
     if (!cmd_run(&cmd)) return 1;
+
+    if (install) {
+        String_View install_prefix = {0};
+        bool should_write = false;
+        if (file_exists(BUILD_FOLDER"install")) {
+            String_Builder sb = {0};
+            if (read_entire_file(BUILD_FOLDER"install", &sb)) {
+                install_prefix = sv_from_parts(sb.items, sb.count);
+            }
+        }
+        if (argc) {
+            String_View env_install_prefix = (String_View){.data = argv[0], .count = strlen(argv[0])};
+            if (!sv_eq(env_install_prefix, install_prefix)) {
+                install_prefix = env_install_prefix;
+                should_write = true;
+            }
+        }
+        if (!install_prefix.data) {
+            const char *env_val = getenv("INSTALL_PREFIX");
+            if (env_val) {
+                install_prefix = (String_View){.data = env_val, .count = strlen(env_val)};
+                should_write = true;
+            }
+        }
+        if (!install_prefix.data || !install_prefix.count) {
+            nob_log(NOB_ERROR, "INSTALL_PREFIX must be provided, either as argument or as env var INSTALL_PREFIX");
+            fprintf(stderr, "Usage: %s -install [INSTALL_PREFIX]\n", flag_program_name());
+            return 1;
+        }
+        if (install_prefix.count > 1 && nob_sv_ends_with_cstr(install_prefix, "/")) {
+            sv_chop_right(&install_prefix, 1);
+        }
+        if (should_write) {
+            if (!write_entire_file(BUILD_FOLDER"install", install_prefix.data, install_prefix.count)) {
+                nob_log(NOB_ERROR, "Failed to save install prefix");
+            }
+        }
+        nob_log(NOB_INFO, "Installing tatr to: "SV_Fmt, SV_Arg(install_prefix));
+        if (!copy_file(BUILD_FOLDER"tatr", temp_sprintf(SV_Fmt"/tatr", SV_Arg(install_prefix)))) {
+            nob_log(NOB_ERROR, "Failed to install tatr");
+            return 1;
+        }
+        return 0;
+    }
 
     if (test) {
         cc(&cmd, compiler);
