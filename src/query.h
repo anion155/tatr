@@ -76,7 +76,7 @@ typedef struct {
     size_t capacity;
 } Query;
 
-bool compile_query(String_View original_src, String_View *src, Query *query);
+bool compile_query(String_View original_src, String_View *src, Query *query, bool ml_expected);
 
 typedef enum {
     TYPE_BOOLEAN,

@@ -354,9 +354,10 @@ bool compile_query_expr(String_View original_src, String_View *src, Query *query
     return true;
 }
 
-bool compile_query(String_View original_src, String_View *src, Query *query)
+bool compile_query(String_View original_src, String_View *src, Query *query, bool ml_expected)
 {
     if (!compile_query_expr(original_src, src, query)) return false;
+    if (ml_expected) return true;
     String_View end = chop_next_query_token(src);
     if (end.count != 0) {
         fprintf(stderr, "Supported infix operators:\n");

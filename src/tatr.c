@@ -24,6 +24,7 @@
 #include "task.h"
 #include "clipboard.h"
 #include "build.h"
+#include "ml.h"
 
 #define DEFAULT_TASK_TITLE "New Task"
 #define DEFAULT_PRIORITY 100
@@ -170,15 +171,15 @@ void render_task_md(Task task, String_Builder *sb)
     sb_appendf(sb, SV_Fmt, SV_Arg(task.body));
 }
 
-bool untag_run(Command *self, const char *program_name, int argc, char **argv)
+bool update_run(Command *self, const char *program_name, int argc, char **argv)
 {
     String_Builder query_src = {0};
-    Flag_List tags_to_remove = {0};
+    // Flag_List tags_to_remove = {0};
     bool help = false;
     bool closed = false;
 
     void *c = flag_c_new(program_name);
-    flag_c_list_var(c, &tags_to_remove, "t", "Tags to remove from the tasks");
+    // flag_c_list_var(c, &tags_to_remove, "t", "Tags to remove from the tasks");
     flag_c_bool_var(c, &closed, "c", false, "List closed tasks");
     flag_c_bool_var(c, &help, "help", false, "Print this help message");
 
@@ -209,7 +210,10 @@ bool untag_run(Command *self, const char *program_name, int argc, char **argv)
     String_View src = sv_trim(sb_to_sv(query_src));
     String_View original_src = src;
     Query query = {0};
-    if (!compile_query(original_src, &src, &query)) return false;
+    if (!compile_query(original_src, &src, &query, true)) return false;
+
+    Modyfying_Language ml = {0};
+    if (!compile_modyfying_language(original_src, &src, &ml)) return false;
 
     char *dir_path = find_relative_tasks_directory();
     if (!dir_path) return false;
@@ -233,22 +237,7 @@ bool untag_run(Command *self, const char *program_name, int argc, char **argv)
         default:             UNREACHABLE("Task_Match_Result");
         }
 
-        bool updated = false;
-        for (size_t i = 0; i < task->tags.count; ) {
-            bool remove = false;
-            for (size_t j = 0; !remove && j < tags_to_remove.count; ++j) {
-                if (sv_eq(task->tags.items[i], sv_from_cstr(tags_to_remove.items[j]))) {
-                    remove = true;
-                }
-            }
-            if (remove) {
-                updated = true;
-                da_remove_unordered(&task->tags, i);
-            } else {
-                i += 1;
-            }
-        }
-
+        bool updated = eval_modyfying_language(task, ml);
         if (updated) {
             String_Builder sb = {0};
             render_task_md(*task, &sb);
@@ -305,7 +294,7 @@ bool ls_run(Command *self, const char *program_name, int argc, char **argv)
     if (src.count == 0) src = sv_from_cstr("any");
     String_View original_src = src;
     Query query = {0};
-    if (!compile_query(original_src, &src, &query)) return false;
+    if (!compile_query(original_src, &src, &query, false)) return false;
 
     // TASK(20260910-181239): `tatr ls -debug` should be a separate command
     if (debug) {
@@ -379,7 +368,7 @@ bool new_run(Command *self, const char *program_name, int argc, char **argv)
     flag_c_list_var(c, &tags, "t", "Tags to add to the new task");
     flag_c_uint64_var(c, &priority, "p", DEFAULT_PRIORITY, "Priority of the new task");
     flag_c_str_var(c, &suffix, "s", NULL, "Task ID optional suffix");
-    flag_c_bool_var(c, &copy, "c", false, "Copy task id to clipboard");
+    flag_c_bool_var(c, &copy, "c", false, "Copy newly created task's huid to clipboard");
     flag_c_bool_var(c, &help, "help", false, "Print this help message");
     String_Builder sb_title = {0};
 
@@ -865,10 +854,10 @@ Command commands[] = {
         .run = graph_run,
     },
     {
-        .name = "untag",
-        .description = "Untag all the tasks filtered by a query",
+        .name = "update",
+        .description = "Update all the tasks filtered by a query",
         .signature = "[OPTIONS] [QUERY]",
-        .run = untag_run,
+        .run = update_run,
     },
     {
         .name = "help",
@@ -948,6 +937,7 @@ int main(int argc, char **argv)
 #include "query.c"
 #include "task.c"
 #include "clipboard.c"
+#include "ml.c"
 
 #define NOB_IMPLEMENTATION
 #define NOB_OVERWRITE_TEMP_ON_REWIND
