@@ -265,6 +265,10 @@ void cc(Cmd *cmd, Compiler compiler)
     cmd_append(cmd, "-I"BUILD_FOLDER);
     if (compiler == CLANG) cmd_append(cmd, "-fsanitize=memory");
     cmd_append(cmd, "-ggdb");
+#if defined(__APPLE__)
+    cmd_append(cmd, "-framework", "AppKit");
+    cmd_append(cmd, "-framework", "Foundation");
+#endif
 }
 
 const char *get_current_date(void)

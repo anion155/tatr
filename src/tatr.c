@@ -22,6 +22,7 @@
 #include "md.h"
 #include "query.h"
 #include "task.h"
+#include "clipboard.h"
 #include "build.h"
 
 #define DEFAULT_TASK_TITLE "New Task"
@@ -370,6 +371,7 @@ bool new_run(Command *self, const char *program_name, int argc, char **argv)
 {
     Flag_List tags = {0};
     bool help = false;
+    bool copy = false;
     uint64_t priority = 0;
     char *suffix = NULL;
 
@@ -377,6 +379,7 @@ bool new_run(Command *self, const char *program_name, int argc, char **argv)
     flag_c_list_var(c, &tags, "t", "Tags to add to the new task");
     flag_c_uint64_var(c, &priority, "p", DEFAULT_PRIORITY, "Priority of the new task");
     flag_c_str_var(c, &suffix, "s", NULL, "Task ID optional suffix");
+    flag_c_bool_var(c, &copy, "c", false, "Copy task id to clipboard");
     flag_c_bool_var(c, &help, "help", false, "Print this help message");
     String_Builder sb_title = {0};
 
@@ -434,6 +437,8 @@ bool new_run(Command *self, const char *program_name, int argc, char **argv)
     if (!write_entire_file(task_md_path, sb_md_content.items, sb_md_content.count)) return false;
 
     print_task_report(dir_path, &task);
+    nob_log(NOB_INFO, "Newly created task id is: %s", id);
+    if (copy) copy_to_clipboard(id);
     return true;
 }
 
@@ -942,6 +947,7 @@ int main(int argc, char **argv)
 #include "md.c"
 #include "query.c"
 #include "task.c"
+#include "clipboard.c"
 
 #define NOB_IMPLEMENTATION
 #define NOB_OVERWRITE_TEMP_ON_REWIND
