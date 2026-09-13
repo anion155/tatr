@@ -427,7 +427,7 @@ bool new_run(Command *self, const char *program_name, int argc, char **argv)
 
     print_task_report(dir_path, &task);
     nob_log(NOB_INFO, "Newly created task id is: %s", id);
-    if (copy) copy_to_clipboard(id);
+    if (copy) copy_to_clipboard(temp_sprintf("TASK(%s)", id));
     return true;
 }
 
